@@ -16,14 +16,18 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.geradordejogospdg.app"
+      "bundleIdentifier": "com.geradordejogospdg.app",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#13a4ec"
       },
-      "package": "com.geradordejogospdg.app"
+      "package": "com.geradordejogospdg.app",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,6 +37,9 @@
         "projectId": "d246c06e-df56-4a0f-b8b2-4bc14ba016a5"
       }
     },
-    "owner": "gabriel_schmitt"
+    "owner": "gabriel_schmitt",
+    "updates": {
+      "url": "https://u.expo.dev/d246c06e-df56-4a0f-b8b2-4bc14ba016a5"
+    }
   }
 }
