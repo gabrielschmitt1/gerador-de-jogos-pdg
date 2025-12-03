@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import {
   Text,
   Card,
@@ -13,12 +13,10 @@ import { useThemeContext } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
 import { TipoLoteria, LOTERIAS, EstatisticaNumero } from '../types';
 
-const { width } = Dimensions.get('window');
-const BAR_MAX_WIDTH = width - 140;
-
 export default function EstatisticasScreen() {
   const { theme } = useThemeContext();
   const { obterEstatisticas, jogos } = useApp();
+  const { width } = useWindowDimensions();
 
   const [loteriaSelecionada, setLoteriaSelecionada] = useState<TipoLoteria>('mega-sena');
   const [tipoVisualizacao, setTipoVisualizacao] = useState<'mais' | 'menos'>('mais');
@@ -54,16 +52,29 @@ export default function EstatisticasScreen() {
 
   const maxFrequencia = Math.max(...dadosExibicao.map((e) => e.frequencia));
 
+  // Calcular largura máxima da barra responsivamente
+  const isSmallScreen = width < 400;
+  const barMaxWidth = Math.min(width - 140, 300); // Limitar a largura máxima da barra
+
   const renderBarraEstatistica = (item: EstatisticaNumero, index: number) => {
-    const largura = (item.frequencia / maxFrequencia) * BAR_MAX_WIDTH;
+    const largura = (item.frequencia / maxFrequencia) * barMaxWidth;
+    const bolaSize = isSmallScreen ? 32 : 36;
 
     return (
       <View key={item.numero} style={styles.barraContainer}>
         <Surface
-          style={[styles.numeroBola, { backgroundColor: config.cor }]}
+          style={[
+            styles.numeroBola,
+            { 
+              backgroundColor: config.cor,
+              width: bolaSize,
+              height: bolaSize,
+              borderRadius: bolaSize / 2,
+            },
+          ]}
           elevation={2}
         >
-          <Text style={styles.numeroTexto}>
+          <Text style={[styles.numeroTexto, { fontSize: isSmallScreen ? 12 : 14 }]}>
             {item.numero.toString().padStart(2, '0')}
           </Text>
         </Surface>
@@ -73,12 +84,24 @@ export default function EstatisticasScreen() {
             style={[
               styles.barra,
               {
-                width: largura,
+                width: Math.max(largura, 20), // Mínimo de 20px para ser visível
+                maxWidth: barMaxWidth,
                 backgroundColor: config.cor + (tipoVisualizacao === 'mais' ? 'CC' : '80'),
+                height: isSmallScreen ? 20 : 24,
+                borderRadius: isSmallScreen ? 10 : 12,
               },
             ]}
           />
-          <Text style={[styles.barraTexto, { color: theme.colors.onSurface }]}>
+          <Text 
+            style={[
+              styles.barraTexto, 
+              { 
+                color: theme.colors.onSurface,
+                fontSize: isSmallScreen ? 10 : 12,
+              },
+            ]}
+            numberOfLines={1}
+          >
             {item.frequencia}x ({item.percentual.toFixed(1)}%)
           </Text>
         </View>
@@ -104,11 +127,12 @@ export default function EstatisticasScreen() {
           textStyle={{
             color: loteriaSelecionada === lot.id ? lot.cor : theme.colors.onSurfaceVariant,
             fontWeight: loteriaSelecionada === lot.id ? '600' : '400',
+            fontSize: isSmallScreen ? 12 : 14,
           }}
           icon={() => (
             <MaterialCommunityIcons
               name={lot.icone as any}
-              size={18}
+              size={isSmallScreen ? 16 : 18}
               color={loteriaSelecionada === lot.id ? lot.cor : theme.colors.onSurfaceVariant}
             />
           )}
@@ -127,7 +151,7 @@ export default function EstatisticasScreen() {
     >
       <View style={styles.header}>
         <Text
-          variant="headlineMedium"
+          variant={isSmallScreen ? 'titleLarge' : 'headlineMedium'}
           style={[styles.titulo, { color: theme.colors.onBackground }]}
         >
           Estatísticas
@@ -146,16 +170,26 @@ export default function EstatisticasScreen() {
       <Card style={[styles.infoCard, { backgroundColor: theme.colors.surface }]}>
         <Card.Content>
           <View style={styles.infoHeader}>
-            <View style={[styles.loteriaIcon, { backgroundColor: config.cor + '20' }]}>
+            <View 
+              style={[
+                styles.loteriaIcon, 
+                { 
+                  backgroundColor: config.cor + '20',
+                  width: isSmallScreen ? 48 : 56,
+                  height: isSmallScreen ? 48 : 56,
+                  borderRadius: isSmallScreen ? 24 : 28,
+                },
+              ]}
+            >
               <MaterialCommunityIcons
                 name={config.icone as any}
-                size={32}
+                size={isSmallScreen ? 24 : 32}
                 color={config.cor}
               />
             </View>
             <View style={styles.infoTexto}>
               <Text
-                variant="titleLarge"
+                variant={isSmallScreen ? 'titleMedium' : 'titleLarge'}
                 style={[styles.loteriaNome, { color: theme.colors.onSurface }]}
               >
                 {config.nome}
@@ -163,53 +197,54 @@ export default function EstatisticasScreen() {
               <Text
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant }}
+                numberOfLines={2}
               >
                 {config.descricao}
               </Text>
             </View>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
+          <View style={[styles.statsRow, { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }]}>
+            <View style={[styles.statItem, isSmallScreen && { minWidth: '45%', marginBottom: 8 }]}>
               <Text
-                variant="headlineSmall"
+                variant={isSmallScreen ? 'titleLarge' : 'headlineSmall'}
                 style={[styles.statValor, { color: config.cor }]}
               >
                 {jogosContagem[loteriaSelecionada]}
               </Text>
               <Text
                 variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
+                style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}
               >
                 Jogos Gerados
               </Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            {!isSmallScreen && <View style={styles.statDivider} />}
+            <View style={[styles.statItem, isSmallScreen && { minWidth: '45%', marginBottom: 8 }]}>
               <Text
-                variant="headlineSmall"
+                variant={isSmallScreen ? 'titleLarge' : 'headlineSmall'}
                 style={[styles.statValor, { color: config.cor }]}
               >
                 {config.numeros}
               </Text>
               <Text
                 variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
+                style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}
               >
-                Números por Jogo
+                Números/Jogo
               </Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            {!isSmallScreen && <View style={styles.statDivider} />}
+            <View style={[styles.statItem, isSmallScreen && { minWidth: '100%' }]}>
               <Text
-                variant="headlineSmall"
+                variant={isSmallScreen ? 'titleLarge' : 'headlineSmall'}
                 style={[styles.statValor, { color: config.cor }]}
               >
                 {config.min}-{config.max}
               </Text>
               <Text
                 variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
+                style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}
               >
                 Range
               </Text>
@@ -225,12 +260,12 @@ export default function EstatisticasScreen() {
         buttons={[
           {
             value: 'mais',
-            label: '🔥 Mais Sorteados',
+            label: isSmallScreen ? '🔥 Mais' : '🔥 Mais Sorteados',
             testID: 'btn-mais-sorteados',
           },
           {
             value: 'menos',
-            label: '❄️ Menos Sorteados',
+            label: isSmallScreen ? '❄️ Menos' : '❄️ Menos Sorteados',
             testID: 'btn-menos-sorteados',
           },
         ]}
@@ -265,12 +300,18 @@ export default function EstatisticasScreen() {
       <View style={styles.disclaimerContainer}>
         <MaterialCommunityIcons
           name="information-outline"
-          size={20}
+          size={isSmallScreen ? 18 : 20}
           color={theme.colors.onSurfaceVariant}
         />
         <Text
           variant="bodySmall"
-          style={[styles.disclaimerTexto, { color: theme.colors.onSurfaceVariant }]}
+          style={[
+            styles.disclaimerTexto, 
+            { 
+              color: theme.colors.onSurfaceVariant,
+              fontSize: isSmallScreen ? 11 : 12,
+            },
+          ]}
         >
           Estatísticas baseadas em dados históricos. Resultados passados não garantem
           sorteios futuros. Jogue com responsabilidade.
@@ -314,9 +355,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loteriaIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -371,30 +409,27 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   numeroBola: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   numeroTexto: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 14,
   },
   barraWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   barra: {
-    height: 24,
-    borderRadius: 12,
+    flexShrink: 1,
   },
   barraTexto: {
-    fontSize: 12,
     fontWeight: '500',
+    flexShrink: 0,
   },
   disclaimerContainer: {
     flexDirection: 'row',
@@ -409,4 +444,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-

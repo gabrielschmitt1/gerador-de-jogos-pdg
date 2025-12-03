@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import {
   Text,
   Card,
@@ -19,19 +19,30 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2;
-
 export default function GerarJogoScreen() {
   const { theme } = useThemeContext();
   const { gerarNumeros, salvarJogo } = useApp();
   const navigation = useNavigation<NavigationProp>();
+  const { width } = useWindowDimensions();
 
   const [loteriaSelecionada, setLoteriaSelecionada] = useState<TipoLoteria | null>(null);
   const [numerosGerados, setNumerosGerados] = useState<number[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const loterias = Object.values(LOTERIAS);
+
+  // Calcular número de colunas baseado na largura da tela
+  const getNumColumns = () => {
+    if (width < 400) return 1;
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    return 4;
+  };
+
+  const numColumns = getNumColumns();
+  const padding = 16;
+  const gap = 12;
+  const cardWidth = (width - padding * 2 - gap * (numColumns - 1)) / numColumns;
 
   const handleSelecionarLoteria = (loteria: TipoLoteria) => {
     setLoteriaSelecionada(loteria);
@@ -68,48 +79,72 @@ export default function GerarJogoScreen() {
     setNumerosGerados([]);
   };
 
-  const renderLoteriaCard = (config: ConfigLoteria) => (
-    <TouchableRipple
-      key={config.id}
-      onPress={() => handleSelecionarLoteria(config.id)}
-      style={styles.cardWrapper}
-      testID={`loteria-card-${config.id}`}
-    >
-      <Surface style={[styles.loteriaCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
-        <View style={[styles.loteriaIconContainer, { backgroundColor: config.cor + '20' }]}>
-          <MaterialCommunityIcons
-            name={config.icone as any}
-            size={32}
-            color={config.cor}
-          />
-        </View>
-        <Text
-          variant="titleMedium"
-          style={[styles.loteriaNome, { color: theme.colors.onSurface }]}
-        >
-          {config.nome}
-        </Text>
-        <Text
-          variant="bodySmall"
-          style={[styles.loteriaDescricao, { color: theme.colors.onSurfaceVariant }]}
-        >
-          {config.descricao}
-        </Text>
-      </Surface>
-    </TouchableRipple>
-  );
+  const renderLoteriaCard = (config: ConfigLoteria, index: number) => {
+    // Calcular se é o último item em uma linha incompleta (para centralizar)
+    const isLastRow = index >= loterias.length - (loterias.length % numColumns || numColumns);
+    const remainingItems = loterias.length % numColumns;
+    
+    return (
+      <TouchableRipple
+        key={config.id}
+        onPress={() => handleSelecionarLoteria(config.id)}
+        style={[
+          styles.cardWrapper,
+          { 
+            width: cardWidth,
+            maxWidth: 200,
+            marginBottom: gap,
+          },
+        ]}
+        testID={`loteria-card-${config.id}`}
+      >
+        <Surface style={[styles.loteriaCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
+          <View style={[styles.loteriaIconContainer, { backgroundColor: config.cor + '20' }]}>
+            <MaterialCommunityIcons
+              name={config.icone as any}
+              size={width < 400 ? 28 : 32}
+              color={config.cor}
+            />
+          </View>
+          <Text
+            variant="titleMedium"
+            style={[styles.loteriaNome, { color: theme.colors.onSurface }]}
+            numberOfLines={1}
+          >
+            {config.nome}
+          </Text>
+          <Text
+            variant="bodySmall"
+            style={[styles.loteriaDescricao, { color: theme.colors.onSurfaceVariant }]}
+            numberOfLines={2}
+          >
+            {config.descricao}
+          </Text>
+        </Surface>
+      </TouchableRipple>
+    );
+  };
 
   const renderNumero = (numero: number, index: number) => {
     const config = loteriaSelecionada ? LOTERIAS[loteriaSelecionada] : null;
     const cor = config?.cor || theme.colors.primary;
+    const bolaSize = width < 400 ? 40 : 48;
 
     return (
       <Surface
         key={`${numero}-${index}`}
-        style={[styles.numeroBola, { backgroundColor: cor }]}
+        style={[
+          styles.numeroBola,
+          { 
+            backgroundColor: cor,
+            width: bolaSize,
+            height: bolaSize,
+            borderRadius: bolaSize / 2,
+          },
+        ]}
         elevation={3}
       >
-        <Text style={styles.numeroTexto}>
+        <Text style={[styles.numeroTexto, { fontSize: width < 400 ? 14 : 16 }]}>
           {numero.toString().padStart(2, '0')}
         </Text>
       </Surface>
@@ -126,25 +161,25 @@ export default function GerarJogoScreen() {
         <View style={styles.header}>
           <MaterialCommunityIcons
             name="clover"
-            size={48}
+            size={width < 400 ? 40 : 48}
             color={theme.colors.primary}
           />
           <Text
-            variant="headlineMedium"
+            variant={width < 400 ? 'titleLarge' : 'headlineMedium'}
             style={[styles.titulo, { color: theme.colors.onBackground }]}
           >
             Gerar Jogo
           </Text>
           <Text
-            variant="bodyLarge"
+            variant="bodyMedium"
             style={[styles.subtitulo, { color: theme.colors.onSurfaceVariant }]}
           >
             Escolha a loteria para gerar seus números da sorte
           </Text>
         </View>
 
-        <View style={styles.loteriasGrid}>
-          {loterias.map(renderLoteriaCard)}
+        <View style={[styles.loteriasGrid, { gap: gap }]}>
+          {loterias.map((lot, index) => renderLoteriaCard(lot, index))}
         </View>
       </ScrollView>
     );
@@ -159,22 +194,30 @@ export default function GerarJogoScreen() {
       contentContainerStyle={styles.scrollContent}
     >
       <View style={styles.header}>
-        <View style={[styles.loteriaIconContainer, { backgroundColor: configSelecionada.cor + '20' }]}>
+        <View style={[
+          styles.loteriaIconContainer,
+          { 
+            backgroundColor: configSelecionada.cor + '20',
+            width: width < 400 ? 56 : 64,
+            height: width < 400 ? 56 : 64,
+            borderRadius: width < 400 ? 28 : 32,
+          },
+        ]}>
           <MaterialCommunityIcons
             name={configSelecionada.icone as any}
-            size={48}
+            size={width < 400 ? 36 : 48}
             color={configSelecionada.cor}
           />
         </View>
         <Text
-          variant="headlineMedium"
+          variant={width < 400 ? 'titleLarge' : 'headlineMedium'}
           style={[styles.titulo, { color: theme.colors.onBackground }]}
         >
           {configSelecionada.nome}
         </Text>
         <Chip
           style={[styles.chip, { backgroundColor: configSelecionada.cor + '30' }]}
-          textStyle={{ color: configSelecionada.cor }}
+          textStyle={{ color: configSelecionada.cor, fontSize: width < 400 ? 12 : 14 }}
         >
           {configSelecionada.numeros} números de {configSelecionada.min} a {configSelecionada.max}
         </Chip>
@@ -196,11 +239,11 @@ export default function GerarJogoScreen() {
               <View style={styles.placeholderContainer}>
                 <MaterialCommunityIcons
                   name="dice-multiple-outline"
-                  size={64}
+                  size={width < 400 ? 48 : 64}
                   color={theme.colors.onSurfaceVariant}
                 />
                 <Text
-                  variant="bodyLarge"
+                  variant="bodyMedium"
                   style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
                 >
                   Aguardando geração...
@@ -272,22 +315,22 @@ const styles = StyleSheet.create({
   subtitulo: {
     textAlign: 'center',
     marginTop: 8,
+    paddingHorizontal: 16,
   },
   loteriasGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   cardWrapper: {
-    width: CARD_WIDTH,
-    marginBottom: 16,
     borderRadius: 16,
+    marginHorizontal: 6,
   },
   loteriaCard: {
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
-    minHeight: 160,
+    minHeight: 140,
     justifyContent: 'center',
   },
   loteriaIconContainer: {
@@ -324,20 +367,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 120,
-    gap: 10,
+    minHeight: 100,
+    gap: 8,
+    paddingVertical: 8,
   },
   numeroBola: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   numeroTexto: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
   },
   placeholderContainer: {
     alignItems: 'center',
@@ -363,4 +403,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
