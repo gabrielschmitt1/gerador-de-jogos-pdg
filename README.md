@@ -1,30 +1,39 @@
-# Gerador de Jogos PDG
+# 🍀 Gerador de Jogos PDG
 
-Sistema de geração de jogos para PDG
+Sistema de geração de jogos de loteria para as principais modalidades da Caixa Econômica Federal.
 
 ## 📱 Sobre o Projeto
 
-O Gerador de Jogos PDG é um aplicativo mobile desenvolvido em React Native.
+O Gerador de Jogos PDG é um aplicativo mobile desenvolvido em React Native que permite gerar números aleatórios para jogos de loteria, salvar seus jogos favoritos e visualizar estatísticas de números mais sorteados.
 
 ## ✨ Funcionalidades
 
-- 📅 **Novo Agendamento**: Crie agendamentos com informações do cliente, procedimento, data, hora, valor e forma de pagamento
-- 📋 **Meus Agendamentos**: Visualize todos os seus agendamentos (próximos e passados) com busca e filtros
-- ✅ **Concluir Agendamentos**: Marque agendamentos como concluídos e mova para o histórico
-- 🔍 **Detalhes**: Veja informações completas do agendamento, incluindo cálculo de lucro
-- ✏️ **Edição**: Edite ou cancele agendamentos existentes
-- 📊 **Relatórios**: Acompanhe métricas financeiras com períodos (semanal, mensal, anual)
-- 💰 **Análise Financeira**: Visualize vendas por tipo de pagamento, lucro total e custos
-- 🔔 **Notificações**: Receba lembretes automáticos 1 hora antes dos agendamentos
+- 🎲 **Gerar Jogo**: Selecione a loteria e gere números aleatórios instantaneamente
+- 🎫 **Meus Jogos**: Histórico completo de todos os jogos gerados e salvos
+- 📊 **Estatísticas**: Visualize os números mais e menos sorteados de cada loteria
+- ⭐ **Favoritos**: Marque seus jogos preferidos para acesso rápido
+- 🔍 **Busca e Filtros**: Encontre jogos por número ou tipo de loteria
+- 📤 **Compartilhar**: Compartilhe seus números da sorte com amigos
 - 🌙 **Modo Escuro**: Interface adaptável com tema claro e escuro
 - 📴 **Offline First**: Todos os dados salvos localmente, funciona sem internet
+
+## 🎰 Loterias Suportadas
+
+| Loteria | Números | Range |
+|---------|---------|-------|
+| **Mega-Sena** | 6 | 1 a 60 |
+| **Quina** | 5 | 1 a 80 |
+| **Lotofácil** | 15 | 1 a 25 |
+| **Lotomania** | 50 | 0 a 99 |
+| **Dupla Sena** | 6 | 1 a 50 |
+| **Timemania** | 10 | 1 a 80 |
 
 ## 🎨 Design
 
 O aplicativo segue as diretrizes do Material Design 3 (Material You) com:
 
 - Interface moderna e intuitiva
-- Tema customizável com cores primárias em azul (#13a4ec)
+- Cores temáticas para cada loteria
 - Componentes do React Native Paper
 - Navegação fluida com Material Bottom Tabs
 - Suporte para modo claro e escuro
@@ -36,18 +45,37 @@ O aplicativo segue as diretrizes do Material Design 3 (Material You) com:
 - **TypeScript** - Tipagem estática para JavaScript
 - **React Native Paper** - Biblioteca de componentes Material Design 3
 - **React Navigation** - Navegação entre telas
-- **React Native Calendars** - Componente de calendário
 - **AsyncStorage** - Persistência local de dados (offline-first)
-- **Expo Notifications** - Sistema de notificações locais
 - **Context API** - Gerenciamento de estado global
 
 ## 📦 Instalação
 
+### Pré-requisitos
+
+- Node.js 18+
+- pnpm (ou npm/yarn)
+- Expo CLI
+
 ### Quick Start
 
 ```bash
-npm install
-npm start
+# Instalar dependências
+pnpm install
+
+# Iniciar o projeto
+pnpm start
+```
+
+### Executar no Android
+
+```bash
+pnpm android
+```
+
+### Executar na Web
+
+```bash
+pnpm web
 ```
 
 ## 📁 Estrutura do Projeto
@@ -55,56 +83,54 @@ npm start
 ```
 gerador-de-jogos-pdg/
 ├── src/
+│   ├── components/       # Componentes reutilizáveis
 │   ├── contexts/         # Context API para gerenciamento de estado
 │   ├── navigation/       # Configuração de navegação
 │   ├── screens/          # Telas do aplicativo
+│   │   ├── GerarJogoScreen.tsx
+│   │   ├── MeusJogosScreen.tsx
+│   │   ├── EstatisticasScreen.tsx
+│   │   ├── DetalhesJogoScreen.tsx
+│   │   ├── SucessoJogoScreen.tsx
+│   │   └── ConfiguracoesScreen.tsx
 │   ├── theme/            # Configuração de tema Material Design 3
 │   └── types/            # Definições de tipos TypeScript
-├── scripts/              # Scripts shell utilitários
-├── android/              # Projeto Android nativo
 ├── assets/               # Imagens e recursos
+├── android/              # Projeto Android nativo
 ├── App.tsx               # Componente raiz
-├── package.json          # Dependências e scripts
-└── README.md             # Este arquivo
+└── package.json          # Dependências e scripts
 ```
 
 ## 🎯 Telas do Aplicativo
 
-### 1. Novo Agendamento
+### 1. Gerar Jogo
+- Seleção visual das 6 loterias disponíveis
+- Geração instantânea de números aleatórios
+- Visualização em "bolinhas" estilizadas com cor da loteria
+- Opção de gerar novamente ou salvar
 
-- Formulário completo para criar novos agendamentos
-- Seleção de data com calendário visual
-- Seleção de horário
-- Campos para valor, custo e tipo de pagamento
-- Campo de observações
+### 2. Meus Jogos
+- Lista de todos os jogos salvos
+- Filtros por tipo de loteria e favoritos
+- Busca por números específicos
+- Menu de opções (detalhes, excluir)
 
-### 2. Meus Agendamentos
+### 3. Estatísticas
+- Seleção de loteria para visualizar
+- Gráfico de barras com frequência de números
+- Top 10 mais sorteados
+- Top 10 menos sorteados
 
-- Lista de agendamentos com filtros (Próximos/Passados)
-- Busca por nome do cliente ou procedimento
-- Cards com informações resumidas
-- Menu de opções (Ver detalhes, Cancelar)
-
-### 3. Detalhes do Agendamento
-
-- Visualização completa das informações
-- Cálculo automático do lucro
-- Opções para editar ou cancelar
-- Seções organizadas (Cliente, Agendamento, Financeiro, Observações)
-
-### 4. Relatórios
-
-- Resumo financeiro com métricas principais
-- Filtros por período (Semanal, Mensal, Anual)
-- Gráficos de vendas por tipo de pagamento
-- Cards com lucro total, vendas e custos
+### 4. Detalhes do Jogo
+- Visualização completa dos números
+- Informações da data de criação
+- Opções de compartilhar e excluir
+- Toggle de favorito
 
 ### 5. Configurações
-
-- Gerenciamento de notificações
 - Alternância entre tema claro/escuro
-- Opções de backup e exportação de dados
-- Informações sobre o aplicativo
+- Informações sobre as loterias
+- Opções de dados (exportar, limpar)
 
 ## 🎨 Personalização
 
@@ -114,18 +140,13 @@ Para personalizar as cores do tema, edite o arquivo `src/theme/theme.ts`:
 const customColors = {
   primary: '#13a4ec', // Cor primária
   secondary: '#64B5F6', // Cor secundária
-  tertiary: '#81C784', // Cor terciária
   // ... outras cores
 };
 ```
 
-## 🔄 Gerenciamento de Estado
+## ⚠️ Aviso Legal
 
-O aplicativo utiliza:
-
-- **Context API** para estado global
-- **AsyncStorage** para persistência local
-- **Offline-first**: Todos os dados são salvos localmente primeiro
+Este aplicativo é apenas para fins de entretenimento. Os números gerados são completamente aleatórios e não garantem prêmios em sorteios oficiais. Jogue com responsabilidade.
 
 ## 📝 Licença
 
@@ -133,12 +154,8 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## 👨‍💻 Desenvolvedor
 
-Desenvolvido com ❤️ utilizando React Native, Expo e Material Design 3.
-
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull requests.
+Desenvolvido com ❤️ por Gabriel Schmitt utilizando React Native, Expo e Material Design 3.
 
 ---
 
-**Gerador de Jogos PDG** - Simplifique seus jogos! 🎮✨
+**Gerador de Jogos PDG** - Boa sorte! 🍀✨

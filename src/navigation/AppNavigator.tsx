@@ -11,23 +11,23 @@ import { adaptNavigationTheme } from 'react-native-paper';
 import { useThemeContext } from '../contexts/ThemeContext';
 
 // Telas
-import NovoAgendamentoScreen from '../screens/NovoAgendamentoScreen';
-import MeusAgendamentosScreen from '../screens/MeusAgendamentosScreen';
-import DetalhesAgendamentoScreen from '../screens/DetalhesAgendamentoScreen';
-import RelatoriosScreen from '../screens/RelatoriosScreen';
+import GerarJogoScreen from '../screens/GerarJogoScreen';
+import MeusJogosScreen from '../screens/MeusJogosScreen';
+import DetalhesJogoScreen from '../screens/DetalhesJogoScreen';
+import EstatisticasScreen from '../screens/EstatisticasScreen';
 import ConfiguracoesScreen from '../screens/ConfiguracoesScreen';
-import SucessoAgendamentoScreen from '../screens/SucessoAgendamentoScreen';
+import SucessoJogoScreen from '../screens/SucessoJogoScreen';
 
 export type RootStackParamList = {
   MainTabs: { screen?: keyof MainTabsParamList };
-  DetalhesAgendamento: { agendamentoId: string };
-  SucessoAgendamento: undefined;
+  DetalhesJogo: { jogoId: string };
+  SucessoJogo: undefined;
 };
 
 export type MainTabsParamList = {
-  NovoAgendamento: undefined;
-  MeusAgendamentos: undefined;
-  Relatorios: undefined;
+  GerarJogo: undefined;
+  MeusJogos: undefined;
+  Estatisticas: undefined;
   Configuracoes: undefined;
 };
 
@@ -42,43 +42,41 @@ const { LightTheme, DarkTheme } = adaptNavigationTheme({
 function MainTabs() {
   const { theme, isDarkMode } = useThemeContext();
 
-  const navigationTheme = isDarkMode ? DarkTheme : LightTheme;
-
   return (
     <Tab.Navigator
-      initialRouteName="MeusAgendamentos"
+      initialRouteName="GerarJogo"
       barStyle={{ backgroundColor: theme.colors.surface }}
       activeColor={theme.colors.primary}
       inactiveColor={theme.colors.onSurfaceVariant}
     >
       <Tab.Screen
-        name="NovoAgendamento"
-        component={NovoAgendamentoScreen}
+        name="GerarJogo"
+        component={GerarJogoScreen}
         options={{
-          tabBarLabel: 'Agendar',
-          tabBarTestID: 'tab-novo-agendamento',
+          tabBarLabel: 'Gerar',
+          tabBarTestID: 'tab-gerar-jogo',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="calendar-month" size={24} color={color} />
+            <MaterialCommunityIcons name="clover" size={24} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="MeusAgendamentos"
-        component={MeusAgendamentosScreen}
+        name="MeusJogos"
+        component={MeusJogosScreen}
         options={{
-          tabBarLabel: 'Meus Agendamentos',
-          tabBarTestID: 'tab-meus-agendamentos',
+          tabBarLabel: 'Meus Jogos',
+          tabBarTestID: 'tab-meus-jogos',
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />
+            <MaterialCommunityIcons name="ticket-outline" size={24} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Relatorios"
-        component={RelatoriosScreen}
+        name="Estatisticas"
+        component={EstatisticasScreen}
         options={{
-          tabBarLabel: 'Relatórios',
-          tabBarTestID: 'tab-relatorios',
+          tabBarLabel: 'Estatísticas',
+          tabBarTestID: 'tab-estatisticas',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="chart-bar" size={24} color={color} />
           ),
@@ -88,7 +86,7 @@ function MainTabs() {
         name="Configuracoes"
         component={ConfiguracoesScreen}
         options={{
-          tabBarLabel: 'Configurações',
+          tabBarLabel: 'Config',
           tabBarTestID: 'tab-configuracoes',
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="cog-outline" size={24} color={color} />
@@ -119,13 +117,17 @@ export function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen
-          name="DetalhesAgendamento"
-          component={DetalhesAgendamentoScreen}
-          options={{ headerShown: true, title: 'Detalhes do Agendamento' }}
+          name="DetalhesJogo"
+          component={DetalhesJogoScreen}
+          options={{
+            headerShown: true,
+            title: 'Detalhes do Jogo',
+            headerTintColor: theme.colors.primary,
+          }}
         />
         <Stack.Screen
-          name="SucessoAgendamento"
-          component={SucessoAgendamentoScreen}
+          name="SucessoJogo"
+          component={SucessoJogoScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
