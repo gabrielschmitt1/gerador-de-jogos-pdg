@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptative-icon.png",
         "backgroundColor": "#13a4ec"
       },
       "package": "com.geradordejogospdg.app",
