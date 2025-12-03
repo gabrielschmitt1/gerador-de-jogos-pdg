@@ -1,0 +1,105 @@
+name: Security Vulnerability Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Executa todo domingo às 00:00 UTC para detectar novas vulnerabilidades
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  trivy-scan:
+    name: Trivy Vulnerability Scanner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # Necessário para upload do SARIF
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # Versão lida automaticamente do campo "packageManager" no package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1' # Falha se encontrar vulnerabilidades HIGH ou CRITICAL
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'HIGH,CRITICAL'
+          trivyignores: '.trivyignore'
+          
+      - name: Run Trivy scanner (SARIF output for GitHub Security)
+        uses: aquasecurity/trivy-action@master
+        if: always() # Executa mesmo se o step anterior falhar
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'LOW,MEDIUM,HIGH,CRITICAL'
+          trivyignores: '.trivyignore'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  pnpm-audit:
+    name: pnpm Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # Versão lida automaticamente do campo "packageManager" no package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true # Não falha o build, apenas reporta
+
+      - name: Generate audit report (JSON)
+        run: |
+          pnpm audit --json > audit-report.json || true
+          echo "📋 Audit report generated"
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: audit-report.json
+          retention-days: 30
+

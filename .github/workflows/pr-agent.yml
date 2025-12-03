@@ -1,0 +1,68 @@
+name: PR-Agent AI Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-agent:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/review') ||
+       contains(github.event.comment.body, '/describe') ||
+       contains(github.event.comment.body, '/improve') ||
+       contains(github.event.comment.body, '/ask'))
+
+    steps:
+      - name: PR Agent - Review
+        if: github.event_name == 'pull_request'
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AGENT.GIT_PROVIDER: github
+          CONFIG.MODEL: "gemini/gemini-2.0-flash"
+          CONFIG.MODEL_TURBO: "gemini/gemini-2.0-flash"
+          CONFIG.FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            - Revise o código em português brasileiro
+            - Foque em bugs, segurança e boas práticas
+            - Seja conciso e direto
+            - Sugira melhorias quando apropriado
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_SECURITY: true
+          PR_REVIEWER.ENABLE_REVIEW_LABELS_EFFORT: true
+          PR_REVIEWER.REQUIRE_FOCUSED_REVIEW: true
+          PR_REVIEWER.REQUIRE_SCORE_REVIEW: true
+          PR_REVIEWER.REQUIRE_TESTS_REVIEW: true
+          PR_REVIEWER.REQUIRE_ESTIMATE_EFFORT_TO_REVIEW: true
+          PR_REVIEWER.NUM_CODE_SUGGESTIONS: 4
+          PR_DESCRIPTION.PUBLISH_LABELS: true
+          PR_DESCRIPTION.ADD_ORIGINAL_USER_DESCRIPTION: true
+          PR_DESCRIPTION.GENERATE_AI_TITLE: false
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: PR Agent - Interactive Commands
+        if: github.event_name == 'issue_comment'
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AGENT.GIT_PROVIDER: github
+          CONFIG.MODEL: "gemini/gemini-2.0-flash"
+          CONFIG.MODEL_TURBO: "gemini/gemini-2.0-flash"
+          CONFIG.FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+

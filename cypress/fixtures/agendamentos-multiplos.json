@@ -1,0 +1,53 @@
+[
+  {
+    "clienteNome": "Gabriel Schmitt",
+    "clienteTelefone": "61993347347",
+    "procedimento": "Corte de cabelo",
+    "valor": "100",
+    "custo": "25",
+    "data": "1",
+    "hora": "17:00",
+    "tipoPagamento": "Cartão de Crédito",
+    "observacoes": "Valor teste"
+  },
+  {
+    "clienteNome": "Fernanda Lima",
+    "clienteTelefone": "11988776655",
+    "procedimento": "Escova",
+    "valor": "60",
+    "custo": "15",
+    "data": "5",
+    "hora": "11:00",
+    "tipoPagamento": "PIX"
+  },
+  {
+    "clienteNome": "Ricardo Alves",
+    "clienteTelefone": "11977665544",
+    "procedimento": "Barba",
+    "valor": "40",
+    "custo": "10",
+    "data": "10",
+    "hora": "16:30",
+    "tipoPagamento": "Dinheiro"
+  },
+  {
+    "clienteNome": "Juliana Rocha",
+    "clienteTelefone": "11966554433",
+    "procedimento": "Hidratação",
+    "valor": "90",
+    "custo": "30",
+    "data": "12",
+    "hora": "14:00",
+    "tipoPagamento": "Cartão de Débito",
+    "observacoes": "Tratamento intensivo"
+  },
+  {
+    "clienteNome": "Lucas Ferreira",
+    "procedimento": "Corte e barba",
+    "valor": "120",
+    "custo": "35",
+    "data": "15",
+    "hora": "09:00",
+    "tipoPagamento": "PIX"
+  }
+]

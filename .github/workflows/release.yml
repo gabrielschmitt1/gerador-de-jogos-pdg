@@ -1,0 +1,39 @@
+name: 🚀 Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create Release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Release PR or Release
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Se uma release foi criada, dispara o build do APK
+      - name: Trigger Android Build
+        if: ${{ steps.release.outputs.release_created }}
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: release-created
+          client-payload: '{"tag": "${{ steps.release.outputs.tag_name }}"}'
+
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}

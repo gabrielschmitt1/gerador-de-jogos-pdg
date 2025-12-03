@@ -1,0 +1,59 @@
+name: Cypress Tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Permite execução manual
+jobs:
+  cypress-run:
+    runs-on: ubuntu-latest
+    # Runs tests in parallel with matrix strategy https://docs.cypress.io/guides/guides/parallelization
+    # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+    # Also see warning here https://github.com/cypress-io/github-action#parallel
+    strategy:
+      fail-fast: false # https://github.com/cypress-io/github-action/issues/48
+      matrix:
+        containers: [1, 2] # Uses 2 parallel instances
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      # Adicione este step para instalar o pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      
+      # Adicione este step para configurar o Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      # Cache do binário do Cypress
+      - name: Cache Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-
+      
+      # Instalar dependências
+      - name: Install dependencies
+        run: pnpm install
+      
+      # Instalar binário do Cypress explicitamente
+      - name: Install Cypress binary
+        run: pnpm exec cypress install
+      
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          start: pnpm start
+          wait-on: 'http://localhost:8081'
+          record: true
+          parallel: true
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

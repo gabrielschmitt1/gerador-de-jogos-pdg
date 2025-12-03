@@ -1,0 +1,717 @@
+---
+alwaysApply: true
+---
+
+# Cypress E2E Testing Rules
+
+## Project Context
+This project automates end-to-end testing for a financing journey application using Cypress 15.4.0, TypeScript, and includes GraphQL, REST API, Kafka, and PostgreSQL integrations.
+
+## Core Principles
+
+### 1. Test Independence
+- ALWAYS ensure tests can run independently in any order
+- NEVER rely on state from previous tests
+- Use `beforeEach()` for setup, NOT `afterEach()` for cleanup
+- Each test should be completely self-contained
+
+### 2. API-First Authentication
+- PREFER API-based authentication over GUI login: `cy.loginViaApi()`
+- Store tokens in `Cypress.env()` and localStorage for reuse
+- NEVER repeat login through UI in every test
+- Use `beforeEach()` to set up authentication state
+
+### 3. Deterministic Waiting
+- ALWAYS wait for specific network requests using aliases
+- NEVER use arbitrary `cy.wait(number)` without a reason
+- Use `cy.intercept()` with aliases: `cy.wait('@aliasName')`
+- For GraphQL: use `cy.interceptGraphQL('query', 'operationName')`
+
+## Code Style & Structure
+
+### Test Organization
+```typescript
+describe('Feature description - Context', function () {
+  // Use function() for proper 'this' context
+  
+  before(function () {
+    // One-time setup (fixtures, etc.)
+    cy.fixture('data').as('dataAlias')
+  })
+
+  beforeEach(function () {
+    // Setup that runs before EACH test
+    cy.loginViaApi(Cypress.env('EMAIL'), Cypress.env('PASSWORD'))
+    cy.visit('/')
+  })
+
+  context('Specific scenario', function () {
+    // Group related tests
+    
+    it('Should perform specific action', 
+      { tags: '@tag_name' },
+      function () {
+        // Test implementation
+      }
+    )
+  })
+})
+```
+
+### Naming Conventions
+- Test files: `feature_context.cy.ts` (snake_case with .cy.ts extension)
+- Custom commands: camelCase (e.g., `cy.loginViaApi()`, `cy.interceptGraphQL()`)
+- Fixtures: snake_case (e.g., `data_simulation_pf.json`)
+- Aliases: camelCase with @ prefix (e.g., `@expectedResponse`)
+- Tags: snake_case with @ prefix (e.g., `@fluxo_completo`)
+
+## Selectors Best Practices
+
+### Priority Order
+1. `data-testid` attributes (PREFERRED): `cy.get('[data-testid="submit-button"]')`
+2. `data-cy` attributes: `cy.get('[data-cy="submit"]')`
+3. Semantic queries: `cy.contains('Submit')`
+4. ARIA attributes: `cy.get('[aria-label="submit"]')`
+5. Stable classes (AVOID dynamic classes)
+6. IDs (only if stable)
+7. NEVER use: nth-child, arbitrary classes, tag names alone
+
+### Examples
+```typescript
+// ✅ GOOD
+cy.get('[data-testid="button-submit"]').click()
+cy.get('[data-testid="input-email"]').type('user@example.com')
+
+// ❌ BAD
+cy.get('button').eq(2).click() // Fragile
+cy.get('.btn-primary-lg-active').click() // Dynamic classes
+```
+
+## Custom Commands
+
+### Command Definition Pattern
+```typescript
+// cypress/support/api_commands.ts
+Cypress.Commands.add('commandName', (param1: string, param2?: number) => {
+  // Always add proper TypeScript types
+  // Always validate required Cypress.env variables
+  // Always use meaningful cy.log() statements
+  // Always handle errors gracefully
+  
+  cy.log(`🔍 Meaningful log message with context: ${param1}`)
+  
+  cy.request({
+    method: 'POST',
+    url: Cypress.env('API_URL') + '/endpoint',
+    body: { param1 },
+    failOnStatusCode: false,
+    timeout: 30000
+  }).then((response) => {
+    expect(response.status).to.eq(200)
+    cy.log(`✅ Success: ${response.body.message}`)
+  })
+})
+```
+
+### Type Declarations
+```typescript
+// cypress/support/index.d.ts
+declare namespace Cypress {
+  interface Chainable {
+    commandName(param1: string, param2?: number): Chainable<void>
+  }
+}
+```
+
+## Network Request Handling
+
+### REST API Intercepting
+```typescript
+// ✅ GOOD - Intercept with alias
+cy.intercept('POST', '/api/endpoint').as('apiCall')
+cy.get('[data-testid="submit"]').click()
+cy.wait('@apiCall').then((interception) => {
+  expect(interception.response.statusCode).to.eq(200)
+  expect(interception.request.body).to.include({ key: 'value' })
+})
+
+// ❌ BAD - Arbitrary wait
+cy.get('[data-testid="submit"]').click()
+cy.wait(5000) // NEVER do this
+```
+
+### GraphQL Intercepting
+```typescript
+// Use custom command for GraphQL
+cy.interceptGraphQL('query', 'financingV2')
+cy.get('[data-testid="load-data"]').click()
+cy.wait('@gqlQueryFinancingV2').then((interception) => {
+  expect(interception.response.statusCode).to.eq(200)
+  expect(interception.response.body.data).to.exist
+})
+```
+
+### Request Polling Pattern
+```typescript
+// ✅ GOOD - Recursive polling
+const checkStatus = () => {
+  cy.request('/api/status').then((resp) => {
+    if (resp.body.completed) {
+      cy.log('✅ Process completed')
+      return // Exit recursion
+    }
+    cy.wait(2000)
+    checkStatus() // Recurse
+  })
+}
+
+cy.get('[data-testid="start"]').click()
+  .then(checkStatus)
+
+// ❌ BAD - Never use while loops
+let completed = false
+while (!completed) { // This will crash!
+  cy.request('/api/status')
+}
+```
+
+## Assertions Best Practices
+
+### Chaining Assertions
+```typescript
+// ✅ GOOD - Chain related assertions
+cy.get('[data-testid="input-name"]')
+  .should('be.visible')
+  .and('not.be.disabled')
+  .and('have.attr', 'data-validation', 'required')
+  .and('have.class', 'active')
+
+// ❌ BAD - Separate gets for same element
+cy.get('[data-testid="input-name"]').should('be.visible')
+cy.get('[data-testid="input-name"]').should('not.be.disabled')
+```
+
+### Callback Assertions for Complex Logic
+```typescript
+// ✅ GOOD - Use callback for complex assertions
+cy.get('[data-testid="list"]').should(($list) => {
+  expect($list).to.have.length(3)
+  const items = $list.map((i, el) => Cypress.$(el).text()).get()
+  expect(items).to.deep.eq(['Item 1', 'Item 2', 'Item 3'])
+})
+```
+
+### Negative Assertions
+```typescript
+// ✅ GOOD - Specific negative assertions
+cy.get('[data-testid="error"]').should('not.exist')
+cy.get('[data-testid="toast"]').should('not.be.visible')
+
+// ❌ BAD - Without specificity
+cy.get('[data-testid="error"]').should('not.be') // Unclear
+```
+
+## Data Management
+
+### Fixtures Usage
+```typescript
+// ✅ GOOD - Load in before(), access in tests
+before(function () {
+  cy.fixture('user_data').as('userData')
+  cy.fixture('expected_response').as('expectedResponse')
+})
+
+it('test', function () {
+  // Access via this
+  expect(response.body).to.have.all.keys(this.expectedResponse)
+})
+```
+
+### Environment Variables
+```typescript
+// ✅ GOOD - Use Cypress.env() for dynamic data
+const projectId = Cypress.env('projectId')
+const apiUrl = Cypress.env('CYPRESS_API_URL')
+
+// Store runtime data
+Cypress.env('projectId', response.body.id)
+
+// ❌ BAD - Hardcoded values
+const apiUrl = 'http://localhost:3000' // Never hardcode
+```
+
+### Dynamic Test Data
+```typescript
+// ✅ GOOD - Generate or fetch data via API
+beforeEach(() => {
+  cy.apiCreateSimulation('fixture.json', 'scenario_key')
+  cy.apiCreateAndPrepareSimulation()
+})
+
+// ❌ BAD - Reuse same data causing conflicts
+it('test 1', () => {
+  cy.visit('/project/12345') // Hardcoded ID
+})
+```
+
+## Timeouts Configuration
+
+### Command-Level Timeouts
+```typescript
+// ✅ GOOD - Explicit timeouts for slow operations
+cy.get('[data-testid="biometry-status"]', { timeout: 150000 })
+  .should('be.visible')
+
+cy.wait('@gqlMutationValidateHardwareForm')
+```
+
+### Test-Level Configuration
+```typescript
+it('slow test', 
+  { 
+    defaultCommandTimeout: 30000,
+    retries: { runMode: 2, openMode: 0 }
+  },
+  () => {
+    // Test implementation
+  }
+)
+```
+
+## Loops and Iterations
+
+### Dynamic Test Generation
+```typescript
+// ✅ GOOD - Use forEach to generate tests
+const scenarios = [
+  { type: 'PF', value: 50000, expected: 'R$ 2.347,50' },
+  { type: 'PJ', value: 100000, expected: 'R$ 4.789,23' }
+]
+
+scenarios.forEach((scenario) => {
+  it(`Scenario: ${scenario.type} - ${scenario.value}`, () => {
+    // Test implementation using scenario data
+  })
+})
+
+// ❌ BAD - Never use while/for loops with Cypress commands
+for (let i = 0; i < 10; i++) {
+  cy.get('button').click() // This won't work as expected!
+}
+```
+
+### Iterating DOM Elements
+```typescript
+// ✅ GOOD - Use .each() for DOM iteration
+cy.get('table tbody tr').each(($row, index) => {
+  cy.wrap($row).within(() => {
+    cy.get('td').first().should('not.be.empty')
+    cy.get('td').eq(1).should('have.class', 'status')
+  })
+})
+```
+
+## Error Handling
+
+### GraphQL Errors
+```typescript
+// ✅ GOOD - Check for GraphQL errors in response
+cy.request({
+  method: 'POST',
+  url: Cypress.env('CYPRESS_BFF_URL') + 'graphql',
+  body: graphqlPayload,
+  failOnStatusCode: false
+}).then((response) => {
+  const hasErrors = response?.body?.errors?.length > 0
+  
+  if (hasErrors) {
+    cy.log('❌ GraphQL Errors:', JSON.stringify(response.body.errors))
+    response.body.errors.forEach((error, index) => {
+      cy.log(`🔥 Error ${index + 1}: ${error.message}`)
+    })
+    throw new Error(`GraphQL Error: ${response.body.errors[0].message}`)
+  }
+  
+  expect(response.status).to.eq(200)
+})
+```
+
+### API Error Handling
+```typescript
+// ✅ GOOD - Always use failOnStatusCode: false for explicit handling
+cy.request({
+  method: 'POST',
+  url: '/api/endpoint',
+  failOnStatusCode: false
+}).then((response) => {
+  if (response.status !== 200) {
+    cy.log(`❌ Request failed: ${response.status}`)
+    cy.log('Response body:', response.body)
+  }
+  expect(response.status).to.eq(200)
+})
+```
+
+## Database & External Services
+
+### Database Queries
+```typescript
+// Use custom task for DB operations
+cy.task('db:query', {
+  sql: 'SELECT * FROM projects WHERE id = $1',
+  params: [Cypress.env('projectId')]
+}).then((rows) => {
+  expect(rows).to.have.length.greaterThan(0)
+  cy.log('Query result:', rows[0])
+})
+```
+
+### Kafka Messages
+```typescript
+// Use custom task for Kafka operations
+cy.task('kafka:produce', {
+  topic: 'topic-name',
+  messages: { data: { id: '123', status: 'approved' } }
+}).then(() => {
+  cy.log('✅ Kafka message produced successfully')
+})
+```
+
+## Anti-Patterns to AVOID
+
+### ❌ NEVER Do These:
+
+1. **Assigning Return Values**
+```typescript
+// ❌ BAD
+const button = cy.get('button') // This doesn't work!
+button.click()
+
+// ✅ GOOD
+cy.get('button').as('submitButton')
+cy.get('@submitButton').click()
+```
+
+2. **Mixing Sync and Async**
+```typescript
+// ❌ BAD
+cy.visit('/page')
+const el = Cypress.$('.element') // Evaluates immediately!
+if (el.length) { cy.get('.other') }
+
+// ✅ GOOD
+cy.visit('/page')
+cy.get('body').then(($body) => {
+  if ($body.find('.element').length) {
+    cy.get('.other')
+  }
+})
+```
+
+3. **Nested Cypress Commands**
+```typescript
+// ❌ BAD
+cy.wait('@alias').then(() => {
+  cy.get('button').click()
+})
+
+// ✅ GOOD
+cy.wait('@alias')
+cy.get('button').click()
+```
+
+4. **Arbitrary Waits**
+```typescript
+// ❌ BAD
+cy.visit('/')
+cy.wait(5000) // Never!
+
+// ✅ GOOD
+cy.visit('/')
+cy.get('[data-testid="loaded-content"]').should('be.visible')
+```
+
+5. **Coupled Tests**
+```typescript
+// ❌ BAD
+it('visits page', () => cy.visit('/'))
+it('fills form', () => cy.get('input').type('text')) // Will fail alone!
+
+// ✅ GOOD
+it('completes full flow', () => {
+  cy.visit('/')
+  cy.get('input').type('text')
+  cy.get('form').submit()
+})
+```
+
+6. **Using afterEach for Cleanup**
+```typescript
+// ❌ BAD
+afterEach(() => {
+  cy.resetDb() // May not run if test is stopped
+})
+
+// ✅ GOOD
+beforeEach(() => {
+  cy.resetDb() // Always runs before test
+})
+```
+
+## TypeScript Best Practices
+
+### Type Safety
+```typescript
+// ✅ GOOD - Always type parameters and returns
+interface ProjectData {
+  id: string
+  status: string
+  value: number
+}
+
+Cypress.Commands.add('getProjectData', (projectId: string): Cypress.Chainable<ProjectData> => {
+  return cy.request<ProjectData>({
+    url: `/api/project/${projectId}`
+  }).its('body')
+})
+```
+
+### Interfaces for Complex Objects
+```typescript
+// ✅ GOOD - Define interfaces for request/response
+interface SimulationRequest {
+  person_type: 'PF' | 'PJ'
+  document: string
+  project_value: number
+  down_payment: number
+}
+
+interface SimulationResponse {
+  id: string
+  status: 'approved' | 'pending' | 'rejected'
+  installments: number
+}
+```
+
+## Performance Optimization
+
+### Minimize cy.visit() Calls
+```typescript
+// ✅ GOOD - Visit once, navigate via state
+beforeEach(() => {
+  cy.loginViaApi(email, password)
+  cy.visit('/') // Only one visit
+})
+
+// ❌ BAD - Multiple visits
+it('test 1', () => cy.visit('/page1'))
+it('test 2', () => cy.visit('/page2'))
+```
+
+### Use cy.session() for Auth
+```typescript
+// ✅ GOOD - Cache authentication
+cy.session([email, password], () => {
+  cy.loginViaApi(email, password)
+}, {
+  validate() {
+    cy.request('/api/user').its('status').should('eq', 200)
+  }
+})
+```
+
+### Block Unnecessary Hosts
+```typescript
+// In cypress.config.ts
+blockHosts: [
+  'analytics.google.com',
+  '*.hotjar.io',
+  'api-js.mixpanel.com'
+]
+```
+
+## Debugging Best Practices
+
+### Meaningful Logs
+```typescript
+// ✅ GOOD - Use emojis and context
+cy.log('🚀 Starting simulation creation')
+cy.log(`📋 Project ID: ${projectId}`)
+cy.log('✅ Simulation created successfully')
+cy.log('❌ Request failed with status:', status)
+```
+
+### Screenshots and Videos
+```typescript
+// Automatic on failure, manual when needed
+cy.screenshot('descriptive-name')
+cy.screenshot('full-page', { capture: 'fullPage' })
+```
+
+### Debug Mode
+```typescript
+// Use .debug() or debugger
+cy.get('[data-testid="element"]')
+  .debug() // Pause and inspect
+  .click()
+```
+
+## CI/CD Considerations
+
+### Retries Configuration
+```typescript
+// In cypress.config.ts
+retries: {
+  runMode: 2,    // Retry twice in CI
+  openMode: 0    // No retries locally
+}
+```
+
+### Test Tagging
+```typescript
+// Tag tests for selective execution
+it('test', { tags: '@smoke' }, () => {})
+it('test', { tags: '@fluxo_completo' }, () => {})
+
+// Run specific tags:
+// yarn e2e:chrome --env grepTags='@smoke'
+```
+
+### Parallel Execution
+```typescript
+// Use cypress-split for parallelization
+// Already configured in project
+// Run: cypress run --record --parallel --ci-build-id $BUILD_ID
+```
+
+## Documentation Standards
+
+### Test Comments
+```typescript
+// ✅ GOOD - Comment WHY, not WHAT
+// Wait for biometry processing to complete before checking contract status
+cy.get('[data-testid="biometry-status"]', { timeout: 150000 })
+
+// ❌ BAD - Obvious comments
+// Click the button
+cy.get('button').click()
+```
+
+### Complex Logic Explanation
+```typescript
+// ✅ GOOD - Explain complex flows
+// GraphQL returns 404 initially until financing is processed
+// We need to retry until the financing is available
+const checkFinancingV2 = () => {
+  // Implementation with clear comments
+}
+```
+
+## Security Best Practices
+
+### Credentials Management
+```typescript
+// ✅ GOOD - Use environment variables
+cy.loginViaApi(
+  Cypress.env('CUSTOMER_VALID_EMAIL'),
+  Cypress.env('CUSTOMER_VALID_PASS')
+)
+
+// ❌ BAD - Never hardcode credentials
+cy.loginViaApi('user@test.com', 'password123')
+```
+
+### Token Handling
+```typescript
+// ✅ GOOD - Store in Cypress.env and localStorage
+Cypress.env('accessToken', token)
+window.localStorage.setItem('accessToken', `"${token}"`)
+
+// ❌ BAD - Expose in logs
+cy.log('Token:', fullTokenValue) // Never do this
+```
+
+## Maintenance Guidelines
+
+### Regular Updates
+- Update Cypress and dependencies monthly
+- Review and update fixtures when APIs change
+- Refactor flaky tests immediately
+- Keep custom commands documentation updated
+
+### Code Review Checklist
+- [ ] Tests are independent and can run in any order
+- [ ] No arbitrary cy.wait() calls
+- [ ] Proper use of data-testid selectors
+- [ ] API calls use proper error handling
+- [ ] TypeScript types are defined
+- [ ] Meaningful test descriptions and logs
+- [ ] No hardcoded values or credentials
+- [ ] Proper timeout configuration
+- [ ] Tests are tagged appropriately
+
+## Quick Reference
+
+### Common Commands
+```typescript
+// Authentication
+cy.loginViaApi(email, password)
+
+// API Requests
+cy.request({ method, url, body, failOnStatusCode: false })
+
+// GraphQL
+cy.interceptGraphQL('query', 'operationName')
+cy.mockGraphQL('query', 'operationName', { fixture: 'file.json' })
+
+// Network
+cy.intercept('POST', '/api/endpoint').as('apiCall')
+cy.wait('@apiCall')
+
+// Selectors
+cy.get('[data-testid="element"]')
+cy.contains('text')
+
+// Assertions
+.should('be.visible')
+.should('have.attr', 'name', 'value')
+.should(($el) => { /* custom assertion */ })
+
+// Database
+cy.task('db:query', { sql, params })
+
+// Kafka
+cy.task('kafka:produce', { topic, messages })
+```
+
+---
+
+## Project-Specific Conventions
+
+### Simulation Flow
+```typescript
+// Standard simulation creation pattern
+beforeEach(() => {
+  cy.loginViaApi(email, password)
+  cy.visit('/')
+  cy.apiCreateSimulation('data_simulation_pf.json', 'scenario_key')
+  cy.apiCreateAndPrepareSimulation()
+})
+```
+
+### Project ID Management
+```typescript
+// Store project ID for Slack reporting
+cy.storeProjectIdForSlack(projectId)
+```
+
+### Document Analysis
+```typescript
+// Machine token required for document operations
+cy.getMachineAuthToken()
+cy.analyzeProjectDocuments(Cypress.env('projectId'), 'approved')
+```
+
+---
+
+**Remember**: Write tests that are reliable, maintainable, and fast. When in doubt, consult the official Cypress documentation at docs.cypress.io

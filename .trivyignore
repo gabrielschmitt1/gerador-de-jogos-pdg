@@ -1,0 +1,9 @@
+# Trivy Ignore File
+# Use este arquivo para ignorar vulnerabilidades que foram aceitas/avaliadas
+# Formato: CVE-XXXX-XXXXX ou ID da vulnerabilidade
+#
+# IMPORTANTE: Sempre documente o motivo de ignorar uma vulnerabilidade!
+# Revisar periodicamente e remover quando a correção estiver disponível.
+
+# Nenhuma vulnerabilidade ignorada no momento - todas corrigidas via pnpm overrides
+
