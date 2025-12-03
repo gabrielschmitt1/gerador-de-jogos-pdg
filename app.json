@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Gerador de Jogos PDG",
-    "slug": "geradordejogospdg",
+    "slug": "gerador-de-jogos-pdg",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#13a4ec"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.geradordejogospdg.app"
@@ -25,6 +27,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d246c06e-df56-4a0f-b8b2-4bc14ba016a5"
+      }
+    },
+    "owner": "gabriel_schmitt"
   }
 }
