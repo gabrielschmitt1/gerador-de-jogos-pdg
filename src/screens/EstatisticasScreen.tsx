@@ -11,7 +11,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
-import { TipoLoteria, LOTERIAS, EstatisticaNumero } from '../types';
+import { TipoLoteria, LOTERIAS, EstatisticaNumero, NUMEROS_ATRASADOS, NumeroAtrasado } from '../types';
+
+type TipoVisualizacao = 'mais' | 'menos' | 'atrasados';
 
 export default function EstatisticasScreen() {
   const { theme } = useThemeContext();
@@ -19,13 +21,16 @@ export default function EstatisticasScreen() {
   const { width } = useWindowDimensions();
 
   const [loteriaSelecionada, setLoteriaSelecionada] = useState<TipoLoteria>('mega-sena');
-  const [tipoVisualizacao, setTipoVisualizacao] = useState<'mais' | 'menos'>('mais');
+  const [tipoVisualizacao, setTipoVisualizacao] = useState<TipoVisualizacao>('mais');
 
   const config = LOTERIAS[loteriaSelecionada];
   const estatisticas = useMemo(
     () => obterEstatisticas(loteriaSelecionada),
     [loteriaSelecionada, obterEstatisticas]
   );
+
+  const numerosAtrasados = NUMEROS_ATRASADOS[loteriaSelecionada];
+  const temDadosAtrasados = numerosAtrasados && numerosAtrasados.length > 0;
 
   // Contar jogos por loteria
   const jogosContagem = useMemo(() => {
@@ -48,13 +53,21 @@ export default function EstatisticasScreen() {
   const dadosExibicao =
     tipoVisualizacao === 'mais'
       ? estatisticas.maisFrequentes
-      : estatisticas.menosFrequentes;
+      : tipoVisualizacao === 'menos'
+      ? estatisticas.menosFrequentes
+      : [];
 
-  const maxFrequencia = Math.max(...dadosExibicao.map((e) => e.frequencia));
+  const maxFrequencia = dadosExibicao.length > 0 
+    ? Math.max(...dadosExibicao.map((e) => e.frequencia))
+    : 1;
+
+  const maxAtraso = temDadosAtrasados
+    ? Math.max(...numerosAtrasados.map((n) => n.atraso))
+    : 1;
 
   // Calcular largura máxima da barra responsivamente
   const isSmallScreen = width < 400;
-  const barMaxWidth = Math.min(width - 140, 300); // Limitar a largura máxima da barra
+  const barMaxWidth = Math.min(width - 140, 300);
 
   const renderBarraEstatistica = (item: EstatisticaNumero, index: number) => {
     const largura = (item.frequencia / maxFrequencia) * barMaxWidth;
@@ -84,7 +97,7 @@ export default function EstatisticasScreen() {
             style={[
               styles.barra,
               {
-                width: Math.max(largura, 20), // Mínimo de 20px para ser visível
+                width: Math.max(largura, 20),
                 maxWidth: barMaxWidth,
                 backgroundColor: config.cor + (tipoVisualizacao === 'mais' ? 'CC' : '80'),
                 height: isSmallScreen ? 20 : 24,
@@ -103,6 +116,71 @@ export default function EstatisticasScreen() {
             numberOfLines={1}
           >
             {item.frequencia}x ({item.percentual.toFixed(1)}%)
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderBarraAtrasado = (item: NumeroAtrasado, index: number) => {
+    const largura = (item.atraso / maxAtraso) * barMaxWidth;
+    const bolaSize = isSmallScreen ? 32 : 36;
+    
+    // Cor baseada no atraso (mais atrasado = mais vermelho)
+    const intensidade = Math.min(item.atraso / 30, 1);
+    const corBarra = item.atraso > 20 
+      ? '#E53935' // Vermelho para muito atrasados
+      : item.atraso > 10 
+      ? '#FF9800' // Laranja para atrasados
+      : '#4CAF50'; // Verde para pouco atrasados
+
+    return (
+      <View key={item.numero} style={styles.barraContainer}>
+        <Surface
+          style={[
+            styles.numeroBola,
+            { 
+              backgroundColor: config.cor,
+              width: bolaSize,
+              height: bolaSize,
+              borderRadius: bolaSize / 2,
+            },
+          ]}
+          elevation={2}
+        >
+          <Text style={[styles.numeroTexto, { fontSize: isSmallScreen ? 12 : 14 }]}>
+            {item.numero.toString().padStart(2, '0')}
+          </Text>
+        </Surface>
+
+        <View style={styles.barraWrapper}>
+          <View
+            style={[
+              styles.barra,
+              {
+                width: Math.max(largura, 20),
+                maxWidth: barMaxWidth,
+                backgroundColor: corBarra + 'CC',
+                height: isSmallScreen ? 20 : 24,
+                borderRadius: isSmallScreen ? 10 : 12,
+              },
+            ]}
+          />
+          <Text 
+            style={[
+              styles.barraTexto, 
+              { 
+                color: theme.colors.onSurface,
+                fontSize: isSmallScreen ? 10 : 12,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {item.atraso === 0 
+              ? 'Saiu no último' 
+              : item.atraso === 1 
+              ? 'Há 1 concurso' 
+              : `Há ${item.atraso} concursos`}
           </Text>
         </View>
       </View>
@@ -143,6 +221,52 @@ export default function EstatisticasScreen() {
       ))}
     </ScrollView>
   );
+
+  const getToggleButtons = () => {
+    const buttons = [
+      {
+        value: 'mais',
+        label: isSmallScreen ? '🔥 Mais' : '🔥 Mais Sorteados',
+        testID: 'btn-mais-sorteados',
+      },
+      {
+        value: 'menos',
+        label: isSmallScreen ? '❄️ Menos' : '❄️ Menos Sorteados',
+        testID: 'btn-menos-sorteados',
+      },
+    ];
+
+    if (temDadosAtrasados) {
+      buttons.push({
+        value: 'atrasados',
+        label: isSmallScreen ? '⏰ Atrasados' : '⏰ Mais Atrasados',
+        testID: 'btn-atrasados',
+      });
+    }
+
+    return buttons;
+  };
+
+  const getTitulo = () => {
+    switch (tipoVisualizacao) {
+      case 'mais':
+        return 'Top 10 - Mais Sorteados';
+      case 'menos':
+        return 'Top 10 - Menos Sorteados';
+      case 'atrasados':
+        return 'Top 15 - Mais Atrasados';
+    }
+  };
+
+  const getSubtitulo = () => {
+    switch (tipoVisualizacao) {
+      case 'mais':
+      case 'menos':
+        return 'Baseado em dados históricos de sorteios';
+      case 'atrasados':
+        return 'Números que não saem há mais tempo';
+    }
+  };
 
   return (
     <ScrollView
@@ -253,22 +377,11 @@ export default function EstatisticasScreen() {
         </Card.Content>
       </Card>
 
-      {/* Toggle Mais/Menos frequentes */}
+      {/* Toggle Mais/Menos/Atrasados */}
       <SegmentedButtons
         value={tipoVisualizacao}
-        onValueChange={(value) => setTipoVisualizacao(value as 'mais' | 'menos')}
-        buttons={[
-          {
-            value: 'mais',
-            label: isSmallScreen ? '🔥 Mais' : '🔥 Mais Sorteados',
-            testID: 'btn-mais-sorteados',
-          },
-          {
-            value: 'menos',
-            label: isSmallScreen ? '❄️ Menos' : '❄️ Menos Sorteados',
-            testID: 'btn-menos-sorteados',
-          },
-        ]}
+        onValueChange={(value) => setTipoVisualizacao(value as TipoVisualizacao)}
+        buttons={getToggleButtons()}
         style={styles.segmentedButtons}
       />
 
@@ -279,22 +392,61 @@ export default function EstatisticasScreen() {
             variant="titleMedium"
             style={[styles.cardTitulo, { color: theme.colors.onSurface }]}
           >
-            {tipoVisualizacao === 'mais'
-              ? 'Top 10 - Mais Sorteados'
-              : 'Top 10 - Menos Sorteados'}
+            {getTitulo()}
           </Text>
           <Text
             variant="bodySmall"
             style={[styles.cardSubtitulo, { color: theme.colors.onSurfaceVariant }]}
           >
-            Baseado em dados históricos de sorteios
+            {getSubtitulo()}
           </Text>
 
           <View style={styles.estatisticasLista}>
-            {dadosExibicao.map((item, index) => renderBarraEstatistica(item, index))}
+            {tipoVisualizacao === 'atrasados' ? (
+              temDadosAtrasados ? (
+                numerosAtrasados.slice(0, 15).map((item, index) => renderBarraAtrasado(item, index))
+              ) : (
+                <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', padding: 20 }}>
+                  Dados de números atrasados não disponíveis para esta loteria.
+                </Text>
+              )
+            ) : (
+              dadosExibicao.map((item, index) => renderBarraEstatistica(item, index))
+            )}
           </View>
         </Card.Content>
       </Card>
+
+      {/* Legenda para atrasados */}
+      {tipoVisualizacao === 'atrasados' && temDadosAtrasados && (
+        <Card style={[styles.legendaCard, { backgroundColor: theme.colors.surface }]}>
+          <Card.Content>
+            <Text variant="titleSmall" style={[styles.legendaTitulo, { color: theme.colors.onSurface }]}>
+              📊 Legenda de cores:
+            </Text>
+            <View style={styles.legendaContainer}>
+              <View style={styles.legendaItem}>
+                <View style={[styles.legendaCor, { backgroundColor: '#E53935' }]} />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  {'>'} 20 concursos
+                </Text>
+              </View>
+              <View style={styles.legendaItem}>
+                <View style={[styles.legendaCor, { backgroundColor: '#FF9800' }]} />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  11-20 concursos
+                </Text>
+              </View>
+              <View style={styles.legendaItem}>
+                <View style={[styles.legendaCor, { backgroundColor: '#4CAF50' }]} />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  {'<'} 10 concursos
+                </Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Disclaimer */}
       <View style={styles.disclaimerContainer}>
@@ -430,6 +582,30 @@ const styles = StyleSheet.create({
   barraTexto: {
     fontWeight: '500',
     flexShrink: 0,
+  },
+  legendaCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+  },
+  legendaTitulo: {
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  legendaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  legendaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendaCor: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
   },
   disclaimerContainer: {
     flexDirection: 'row',

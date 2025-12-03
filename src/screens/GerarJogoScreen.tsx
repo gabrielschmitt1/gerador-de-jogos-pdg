@@ -7,6 +7,8 @@ import {
   Surface,
   TouchableRipple,
   Chip,
+  SegmentedButtons,
+  Divider,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -21,12 +23,14 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function GerarJogoScreen() {
   const { theme } = useThemeContext();
-  const { gerarNumeros, salvarJogo } = useApp();
+  const { gerarNumeros, gerarMultiplosJogos, salvarJogo, salvarMultiplosJogos, validarJogoMegaSena } = useApp();
   const navigation = useNavigation<NavigationProp>();
   const { width } = useWindowDimensions();
 
   const [loteriaSelecionada, setLoteriaSelecionada] = useState<TipoLoteria | null>(null);
-  const [numerosGerados, setNumerosGerados] = useState<number[]>([]);
+  const [qtdNumeros, setQtdNumeros] = useState<number>(6);
+  const [qtdJogos, setQtdJogos] = useState<number>(1);
+  const [jogosGerados, setJogosGerados] = useState<number[][]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const loterias = Object.values(LOTERIAS);
@@ -46,7 +50,10 @@ export default function GerarJogoScreen() {
 
   const handleSelecionarLoteria = (loteria: TipoLoteria) => {
     setLoteriaSelecionada(loteria);
-    setNumerosGerados([]);
+    setJogosGerados([]);
+    // Resetar quantidade de números para o padrão da loteria
+    const config = LOTERIAS[loteria];
+    setQtdNumeros(config.numeros);
   };
 
   const handleGerarNumeros = () => {
@@ -56,34 +63,47 @@ export default function GerarJogoScreen() {
 
     // Simular animação de geração
     setTimeout(() => {
-      const numeros = gerarNumeros(loteriaSelecionada);
-      setNumerosGerados(numeros);
+      if (qtdJogos === 1) {
+        const numeros = gerarNumeros(loteriaSelecionada, qtdNumeros);
+        setJogosGerados([numeros]);
+      } else {
+        const jogos = gerarMultiplosJogos(loteriaSelecionada, qtdJogos, qtdNumeros);
+        setJogosGerados(jogos);
+      }
       setIsGenerating(false);
     }, 500);
   };
 
-  const handleSalvarJogo = async () => {
-    if (!loteriaSelecionada || numerosGerados.length === 0) return;
+  const handleSalvarJogos = async () => {
+    if (!loteriaSelecionada || jogosGerados.length === 0) return;
 
-    await salvarJogo({
-      loteria: loteriaSelecionada,
-      numeros: numerosGerados,
-      favorito: false,
-    });
+    if (jogosGerados.length === 1) {
+      await salvarJogo({
+        loteria: loteriaSelecionada,
+        numeros: jogosGerados[0],
+        qtdNumeros: qtdNumeros,
+        favorito: false,
+      });
+    } else {
+      const jogosParaSalvar = jogosGerados.map((numeros) => ({
+        loteria: loteriaSelecionada,
+        numeros,
+        qtdNumeros: qtdNumeros,
+        favorito: false,
+      }));
+      await salvarMultiplosJogos(jogosParaSalvar);
+    }
 
     navigation.navigate('SucessoJogo');
   };
 
   const handleVoltar = () => {
     setLoteriaSelecionada(null);
-    setNumerosGerados([]);
+    setJogosGerados([]);
+    setQtdJogos(1);
   };
 
   const renderLoteriaCard = (config: ConfigLoteria, index: number) => {
-    // Calcular se é o último item em uma linha incompleta (para centralizar)
-    const isLastRow = index >= loterias.length - (loterias.length % numColumns || numColumns);
-    const remainingItems = loterias.length % numColumns;
-    
     return (
       <TouchableRipple
         key={config.id}
@@ -120,15 +140,22 @@ export default function GerarJogoScreen() {
           >
             {config.descricao}
           </Text>
+          {config.temRegrasEspeciais && (
+            <Chip
+              style={[styles.chipRegras, { backgroundColor: config.cor + '20' }]}
+              textStyle={{ color: config.cor, fontSize: 10 }}
+              compact
+            >
+              Regras inteligentes
+            </Chip>
+          )}
         </Surface>
       </TouchableRipple>
     );
   };
 
-  const renderNumero = (numero: number, index: number) => {
-    const config = loteriaSelecionada ? LOTERIAS[loteriaSelecionada] : null;
-    const cor = config?.cor || theme.colors.primary;
-    const bolaSize = width < 400 ? 40 : 48;
+  const renderNumero = (numero: number, index: number, cor: string) => {
+    const bolaSize = width < 400 ? 36 : 44;
 
     return (
       <Surface
@@ -144,10 +171,49 @@ export default function GerarJogoScreen() {
         ]}
         elevation={3}
       >
-        <Text style={[styles.numeroTexto, { fontSize: width < 400 ? 14 : 16 }]}>
+        <Text style={[styles.numeroTexto, { fontSize: width < 400 ? 12 : 14 }]}>
           {numero.toString().padStart(2, '0')}
         </Text>
       </Surface>
+    );
+  };
+
+  const renderJogoCard = (numeros: number[], jogoIndex: number) => {
+    const config = loteriaSelecionada ? LOTERIAS[loteriaSelecionada] : null;
+    const cor = config?.cor || theme.colors.primary;
+    const validacao = loteriaSelecionada === 'mega-sena' ? validarJogoMegaSena(numeros) : null;
+
+    return (
+      <Card 
+        key={jogoIndex} 
+        style={[styles.jogoCard, { backgroundColor: theme.colors.surface }]}
+      >
+        <Card.Content>
+          <View style={styles.jogoHeader}>
+            <Text variant="titleSmall" style={{ color: theme.colors.onSurface }}>
+              Jogo {jogoIndex + 1}
+            </Text>
+            {validacao && (
+              <Chip
+                style={[
+                  styles.validacaoChip,
+                  { backgroundColor: validacao.valido ? '#4CAF50' + '20' : '#FF9800' + '20' },
+                ]}
+                textStyle={{ 
+                  color: validacao.valido ? '#4CAF50' : '#FF9800',
+                  fontSize: 10,
+                }}
+                compact
+              >
+                {validacao.valido ? '✓ Validado' : '⚠ Parcial'}
+              </Chip>
+            )}
+          </View>
+          <View style={styles.numerosRow}>
+            {numeros.map((num, idx) => renderNumero(num, idx, cor))}
+          </View>
+        </Card.Content>
+      </Card>
     );
   };
 
@@ -187,6 +253,7 @@ export default function GerarJogoScreen() {
 
   // Tela de geração de números
   const configSelecionada = LOTERIAS[loteriaSelecionada];
+  const temOpcoesNumeros = configSelecionada.numerosOpcoes && configSelecionada.numerosOpcoes.length > 1;
 
   return (
     <ScrollView
@@ -215,81 +282,158 @@ export default function GerarJogoScreen() {
         >
           {configSelecionada.nome}
         </Text>
-        <Chip
-          style={[styles.chip, { backgroundColor: configSelecionada.cor + '30' }]}
-          textStyle={{ color: configSelecionada.cor, fontSize: width < 400 ? 12 : 14 }}
-        >
-          {configSelecionada.numeros} números de {configSelecionada.min} a {configSelecionada.max}
-        </Chip>
+        {configSelecionada.temRegrasEspeciais && (
+          <Chip
+            style={[styles.chip, { backgroundColor: configSelecionada.cor + '30' }]}
+            textStyle={{ color: configSelecionada.cor, fontSize: width < 400 ? 11 : 12 }}
+          >
+            🎯 Regras inteligentes ativas
+          </Chip>
+        )}
       </View>
 
-      <Card style={[styles.resultadoCard, { backgroundColor: theme.colors.surface }]}>
-        <Card.Content>
-          <Text
-            variant="titleMedium"
-            style={[styles.resultadoTitulo, { color: theme.colors.onSurface }]}
-          >
-            {numerosGerados.length > 0 ? 'Seus números da sorte:' : 'Clique para gerar'}
-          </Text>
+      {/* Seletor de quantidade de números (apenas para loterias com opções) */}
+      {temOpcoesNumeros && (
+        <Card style={[styles.configuracaoCard, { backgroundColor: theme.colors.surface }]}>
+          <Card.Content>
+            <Text variant="titleSmall" style={[styles.seletorTitulo, { color: theme.colors.onSurface }]}>
+              Quantidade de números:
+            </Text>
+            <SegmentedButtons
+              value={qtdNumeros.toString()}
+              onValueChange={(value) => setQtdNumeros(parseInt(value))}
+              buttons={configSelecionada.numerosOpcoes!.map((num) => ({
+                value: num.toString(),
+                label: `${num} números`,
+                style: { 
+                  backgroundColor: qtdNumeros === num 
+                    ? configSelecionada.cor + '30' 
+                    : 'transparent' 
+                },
+              }))}
+              style={styles.segmentedButtons}
+            />
+            <Text 
+              variant="bodySmall" 
+              style={[styles.infoText, { color: theme.colors.onSurfaceVariant }]}
+            >
+              {qtdNumeros === 6 
+                ? 'Jogo tradicional com 6 números' 
+                : 'Jogo ampliado com 7 números (mais chances)'}
+            </Text>
+          </Card.Content>
+        </Card>
+      )}
 
-          <View style={styles.numerosContainer}>
-            {numerosGerados.length > 0 ? (
-              numerosGerados.map((num, idx) => renderNumero(num, idx))
-            ) : (
-              <View style={styles.placeholderContainer}>
-                <MaterialCommunityIcons
-                  name="dice-multiple-outline"
-                  size={width < 400 ? 48 : 64}
-                  color={theme.colors.onSurfaceVariant}
-                />
-                <Text
-                  variant="bodyMedium"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-                >
-                  Aguardando geração...
+      {/* Seletor de quantidade de jogos */}
+      <Card style={[styles.configuracaoCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Content>
+          <Text variant="titleSmall" style={[styles.seletorTitulo, { color: theme.colors.onSurface }]}>
+            Quantidade de jogos: <Text style={{ color: configSelecionada.cor, fontWeight: 'bold' }}>{qtdJogos}</Text>
+          </Text>
+          <View style={styles.qtdJogosContainer}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+              <TouchableRipple
+                key={num}
+                onPress={() => setQtdJogos(num)}
+                style={[
+                  styles.qtdJogoButton,
+                  {
+                    backgroundColor: qtdJogos === num 
+                      ? configSelecionada.cor 
+                      : theme.colors.surfaceVariant,
+                    borderColor: configSelecionada.cor,
+                  },
+                ]}
+              >
+                <Text style={[
+                  styles.qtdJogoText,
+                  { color: qtdJogos === num ? '#FFFFFF' : theme.colors.onSurfaceVariant },
+                ]}>
+                  {num}
                 </Text>
-              </View>
-            )}
+              </TouchableRipple>
+            ))}
           </View>
         </Card.Content>
       </Card>
 
-      <View style={styles.botoesContainer}>
-        <Button
-          mode="contained"
-          onPress={handleGerarNumeros}
-          loading={isGenerating}
-          icon="refresh"
-          style={[styles.botaoGerar, { backgroundColor: configSelecionada.cor }]}
-          labelStyle={styles.botaoLabel}
-          testID="button-gerar"
-        >
-          {numerosGerados.length > 0 ? 'Gerar Novamente' : 'Gerar Números'}
-        </Button>
+      {/* Regras aplicadas (apenas para Mega-Sena) */}
+      {configSelecionada.temRegrasEspeciais && (
+        <Card style={[styles.regrasCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <Card.Content>
+            <Text variant="titleSmall" style={[styles.regrasTitulo, { color: theme.colors.onSurface }]}>
+              📋 Regras aplicadas:
+            </Text>
+            <View style={styles.regrasLista}>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                • Equilíbrio par/ímpar ({qtdNumeros === 6 ? '3/3, 4/2 ou 2/4' : '4/3, 3/4, 5/2 ou 2/5'})
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                • Mínimo 2 números {'>'} 31
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                • Distribuição em pelo menos 3 quadrantes
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                • Sem sequências de 3+ números consecutivos
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
 
-        {numerosGerados.length > 0 && (
+      <Divider style={styles.divider} />
+
+      {/* Botão de gerar */}
+      <Button
+        mode="contained"
+        onPress={handleGerarNumeros}
+        loading={isGenerating}
+        icon="dice-multiple"
+        style={[styles.botaoGerar, { backgroundColor: configSelecionada.cor }]}
+        labelStyle={styles.botaoLabel}
+        testID="button-gerar"
+      >
+        {jogosGerados.length > 0 
+          ? `Gerar ${qtdJogos} Novo${qtdJogos > 1 ? 's' : ''} Jogo${qtdJogos > 1 ? 's' : ''}`
+          : `Gerar ${qtdJogos} Jogo${qtdJogos > 1 ? 's' : ''}`}
+      </Button>
+
+      {/* Resultados */}
+      {jogosGerados.length > 0 && (
+        <>
+          <Text 
+            variant="titleMedium" 
+            style={[styles.resultadoTitulo, { color: theme.colors.onBackground }]}
+          >
+            🎲 {jogosGerados.length} jogo{jogosGerados.length > 1 ? 's' : ''} gerado{jogosGerados.length > 1 ? 's' : ''}:
+          </Text>
+          
+          {jogosGerados.map((numeros, index) => renderJogoCard(numeros, index))}
+
           <Button
             mode="contained-tonal"
-            onPress={handleSalvarJogo}
-            icon="content-save"
+            onPress={handleSalvarJogos}
+            icon="content-save-all"
             style={styles.botaoSalvar}
             labelStyle={styles.botaoLabel}
             testID="button-salvar"
           >
-            Salvar Jogo
+            {jogosGerados.length === 1 ? 'Salvar Jogo' : `Salvar Todos (${jogosGerados.length})`}
           </Button>
-        )}
+        </>
+      )}
 
-        <Button
-          mode="text"
-          onPress={handleVoltar}
-          icon="arrow-left"
-          style={styles.botaoVoltar}
-          testID="button-voltar"
-        >
-          Escolher outra loteria
-        </Button>
-      </View>
+      <Button
+        mode="text"
+        onPress={handleVoltar}
+        icon="arrow-left"
+        style={styles.botaoVoltar}
+        testID="button-voltar"
+      >
+        Escolher outra loteria
+      </Button>
     </ScrollView>
   );
 }
@@ -350,26 +494,83 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
   },
+  chipRegras: {
+    marginTop: 8,
+  },
   chip: {
     marginTop: 8,
   },
-  resultadoCard: {
-    marginBottom: 24,
+  configuracaoCard: {
+    marginBottom: 12,
     borderRadius: 16,
   },
-  resultadoTitulo: {
-    textAlign: 'center',
-    marginBottom: 16,
+  seletorTitulo: {
+    marginBottom: 12,
     fontWeight: '600',
   },
-  numerosContainer: {
+  segmentedButtons: {
+    marginBottom: 8,
+  },
+  infoText: {
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  qtdJogosContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 100,
     gap: 8,
-    paddingVertical: 8,
+    marginTop: 4,
+  },
+  qtdJogoButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  qtdJogoText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  regrasCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+  },
+  regrasTitulo: {
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  regrasLista: {
+    gap: 4,
+  },
+  divider: {
+    marginVertical: 16,
+  },
+  resultadoTitulo: {
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  jogoCard: {
+    marginBottom: 12,
+    borderRadius: 16,
+  },
+  jogoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  validacaoChip: {
+    height: 24,
+  },
+  numerosRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
   },
   numeroBola: {
     alignItems: 'center',
@@ -378,11 +579,6 @@ const styles = StyleSheet.create({
   numeroTexto: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-  },
-  placeholderContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
   },
   botoesContainer: {
     gap: 12,
@@ -394,9 +590,10 @@ const styles = StyleSheet.create({
   botaoSalvar: {
     paddingVertical: 8,
     borderRadius: 12,
+    marginTop: 16,
   },
   botaoVoltar: {
-    marginTop: 8,
+    marginTop: 16,
   },
   botaoLabel: {
     fontSize: 16,
